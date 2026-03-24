@@ -1,38 +1,28 @@
 import requests
-
+import re
 
 def get_text(url):
-    response = requests.get(url)
-    return response.text
-
-
-def count_word_frequencies(url, word):
-    text = get_text(url)
-    words = text.split()
-    count = 0
-    for w in words:
-        if w == word:
-            count += 1
-    return count
-
+    response = requests.get(url, stream=True, timeout=5)
+    response.raise_for_status()
+    for line in response.iter_lines(decode_unicode=True):
+        if line:
+            for word in re.findall(r'\b\w+\b', line.lower()):
+                yield word
 
 def main():
     words_file = "words.txt"
     url = "https://eng.mipt.ru/why-mipt/"
 
-    words_to_count = []
     with open(words_file, 'r') as file:
-        for line in file:
-            word = line.strip()
-            if word:
-                words_to_count.append(word)
+        words_to_count = {line.strip().lower() for line in file if line.strip()}
 
     frequencies = {}
-    for word in words_to_count:
-        frequencies[word] = count_word_frequencies(url, word)
+    for w in get_text(url):
+        if w in words_to_count:
+            frequencies[w] = frequencies.get(w, 0) + 1
 
-    print(frequencies)
+    return frequencies
 
 
 if __name__ == "__main__":
-    main()
+    print(main())
